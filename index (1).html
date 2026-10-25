@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Journal de Trading Pro · Comptes en direct</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root{--bg:#0d1117;--p:#141a22;--p2:#10151c;--ln:#232c38;--tx:#e7eaef;--mu:#8792a2;--g:#3ecf8e;--r:#f0616d;--o:#e3b04b;--b:#6aa7ff;color-scheme:dark}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--tx);font:14px/1.5 Manrope,system-ui,sans-serif;font-variant-numeric:tabular-nums;padding-bottom:48px}
+[hidden]{display:none!important}
+header{position:sticky;top:0;z-index:9;background:rgba(13,17,23,.93);backdrop-filter:blur(8px);border-bottom:1px solid var(--ln);padding:12px 20px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+h1{font-size:18px;font-weight:800}h1 small{display:block;font-size:12px;font-weight:500;color:var(--mu)}
+h2{font-size:14px;font-weight:700;margin-bottom:10px}
+main{max-width:1280px;margin:18px auto;padding:0 16px;display:grid;gap:14px}
+.card{background:var(--p);border:1px solid var(--ln);border-radius:10px;padding:16px}
+.grid{display:grid;gap:12px}.k{grid-template-columns:repeat(auto-fit,minmax(165px,1fr))}.two{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+.l{font-size:12px;color:var(--mu);font-weight:600}.v{font-size:24px;font-weight:800;letter-spacing:-.02em}.d{font-size:12px;color:var(--mu)}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.row{display:flex;justify-content:space-between;gap:8px;padding:9px 12px;background:var(--p2);border:1px solid var(--ln);border-radius:8px;font-size:13px}.row span{color:var(--mu)}
+.g{color:var(--g)}.r{color:var(--r)}.o{color:var(--o)}.b{color:var(--b)}
+button{font:inherit;font-size:12px;font-weight:600;color:var(--tx);background:var(--p);border:1px solid var(--ln);border-radius:7px;padding:7px 12px;cursor:pointer}
+button:hover{border-color:#3a4656}button.on{border-color:var(--o);color:var(--o)}button.pri{background:var(--o);color:#1a1405;border-color:var(--o)}
+:focus-visible{outline:2px solid var(--b);outline-offset:2px}
+input,select{font:inherit;font-size:13px;color:var(--tx);background:var(--bg);border:1px solid var(--ln);border-radius:6px;padding:6px 8px;width:100%}
+input:focus,select:focus{outline:none;border-color:var(--o)}
+td input,td select{padding:4px 6px;min-width:90px}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--r);margin-right:6px}.dot.on{background:var(--g)}
+.chart{position:relative;height:280px}
+.wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:13px;min-width:900px}
+th{text-align:left;color:var(--mu);font-weight:600;font-size:12px;padding:8px;border-bottom:1px solid var(--ln)}td{padding:7px 8px;border-bottom:1px solid #1b232d}
+.tag{font-size:11px;font-weight:700;padding:2px 8px;border-radius:5px}.buy{background:rgba(62,207,142,.12);color:var(--g)}.sell{background:rgba(240,97,109,.12);color:var(--r)}
+.gauge{height:8px;background:var(--p2);border-radius:5px;overflow:hidden;margin:6px 0 2px}.gauge i{display:block;height:100%;background:var(--g)}
+.empty{padding:28px;text-align:center;color:var(--mu)}
+#login{max-width:360px;margin:12vh auto;display:grid;gap:10px}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<form id="login" class="card" hidden>
+  <h1>Journal de Trading Pro<small>Connexion à votre espace sécurisé</small></h1>
+  <input id="em" type="email" placeholder="E-mail" autocomplete="username" required aria-label="E-mail">
+  <input id="pw" type="password" placeholder="Mot de passe" autocomplete="current-password" minlength="8" required aria-label="Mot de passe">
+  <button class="pri" style="padding:10px">Se connecter</button>
+  <button type="button" id="bSign" style="padding:10px">Créer un compte</button>
+  <button type="button" id="bReset" class="d" style="border:0;background:none">Mot de passe oublié ?</button>
+  <div id="lerr" class="r d" role="alert"></div>
+  <p class="d">Chaque trader a son propre espace privé : vos données ne sont visibles que par vous.</p>
+</form>
+
+<div id="app" hidden>
+<header>
+  <h1>Journal de Trading Pro<small>Suivi des comptes en direct</small></h1>
+  <div class="bar"><div id="tabs" class="bar"></div><span id="who" class="d"></span><button id="bCsv">Exporter CSV</button><button id="bOut">Déconnexion</button></div>
+</header>
+<main>
+  <section class="grid k">
+    <div class="card"><div class="l">Solde</div><div class="v" id="kBal">—</div><div class="d" id="kSt">—</div></div>
+    <div class="card"><div class="l">Équité</div><div class="v" id="kEq">—</div><div class="d" id="kFl">—</div></div>
+    <div class="card"><div class="l">Résultat net (trades clôturés)</div><div class="v" id="kPnl">—</div><div class="d" id="kPct">—</div></div>
+    <div class="card"><div class="l">Taux de réussite</div><div class="v" id="kWin">—</div><div class="d" id="kCnt">—</div></div>
+    <div class="card"><div class="l">Profit factor</div><div class="v b" id="kPf">—</div><div class="d">Gains / pertes bruts</div></div>
+    <div class="card"><div class="l">Drawdown maximal</div><div class="v r" id="kDd">—</div><div class="d">Sur les trades clôturés</div></div>
+    <div class="card"><div class="l">Discipline</div><div class="v b" id="kDis">—</div><div class="d" id="kDisN">Trades qualifiés</div></div>
+  </section>
+
+  <section class="card" id="rules" hidden>
+    <h2>Règles du compte (prop firm)</h2>
+    <div class="grid k" style="margin-bottom:12px">
+      <div><div class="l">Capital initial</div><input id="rStart" type="number" step="any"></div>
+      <div><div class="l">Perte journalière max (%)</div><input id="rDay" type="number" step="0.1"></div>
+      <div><div class="l">Drawdown total max (%)</div><input id="rDd" type="number" step="0.1"></div>
+      <div><div class="l">Objectif de profit (%)</div><input id="rTg" type="number" step="0.1"></div>
+    </div>
+    <div class="grid k">
+      <div class="row" style="display:block"><span>Perte du jour</span> <b id="gDayT" style="float:right"></b><div class="gauge"><i id="gDay"></i></div></div>
+      <div class="row" style="display:block"><span>Drawdown total</span> <b id="gDdT" style="float:right"></b><div class="gauge"><i id="gDd"></i></div></div>
+      <div class="row" style="display:block"><span>Objectif</span> <b id="gTgT" style="float:right"></b><div class="gauge"><i id="gTg"></i></div></div>
+    </div>
+    <p class="d" style="margin-top:8px">Le jour est calculé à minuit heure locale ; ajustez selon la règle de votre prop firm.</p>
+  </section>
+
+  <section class="card"><h2 id="eqTitle">Évolution du compte</h2><div class="chart" style="height:320px"><canvas id="cEq"></canvas></div></section>
+
+  <section class="grid two">
+    <div class="card"><h2>Positions ouvertes</h2><div class="wrap"><table style="min-width:520px"><thead><tr><th>Compte</th><th>Actif</th><th>Sens</th><th>Lots</th><th>Entrée</th><th>Flottant</th></tr></thead><tbody id="tPos"></tbody></table></div></div>
+    <div class="card"><h2>Statistiques</h2><div class="grid" id="stats"></div></div>
+    <div class="card"><h2>Résultat par mois</h2><div class="chart"><canvas id="cMonth"></canvas></div></div>
+    <div class="card"><h2>Résultat par état émotionnel</h2><div class="chart"><canvas id="cEmo"></canvas></div></div>
+  </section>
+
+  <section class="card">
+    <h2>Trades clôturés <span class="d" id="qNote"></span></h2>
+    <div class="wrap"><table><thead><tr><th>Date</th><th>Compte</th><th>Actif</th><th>Sens</th><th>Lots</th><th>Résultat</th><th>R/R</th><th>Setup</th><th>Plan respecté</th><th>Émotion</th><th>Notes</th></tr></thead><tbody id="tTr"></tbody></table></div>
+  </section>
+</main>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { getFirestore, collection, doc, onSnapshot, setDoc, getDoc, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+const app = initializeApp({ apiKey:"AIzaSyDFfsaI85dsAfAqigH0HyKgcGzNuTDQGG8", authDomain:"trading-das.firebaseapp.com", projectId:"trading-das",
+  storageBucket:"trading-das.firebasestorage.app", messagingSenderId:"1034073455746", appId:"1:1034073455746:web:43363d623668164984089b" });
+const auth = getAuth(app), db = getFirestore(app);
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = n => (n < 0 ? '-' : '') + '$' + Math.abs(n).toLocaleString('fr-FR', {minimumFractionDigits:2, maximumFractionDigits:2});
+const sg = n => (n > 0 ? '+' : '') + fmt(n);
+const cl = n => n > 0 ? 'g' : n < 0 ? 'r' : '';
+const A = {}, T = {}, N = {}, U = {}; let cur = 'ALL', started = false, raf = 0;
+const render = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(draw); };
+
+// ---------- Authentification ----------
+const msg = c => ({ 'auth/invalid-credential':'Identifiants incorrects.', 'auth/wrong-password':'Identifiants incorrects.', 'auth/user-not-found':'Identifiants incorrects.',
+  'auth/email-already-in-use':'Un compte existe déjà avec cet e-mail.', 'auth/weak-password':'Mot de passe trop court (8 caractères minimum).',
+  'auth/invalid-email':'Adresse e-mail invalide.', 'auth/too-many-requests':'Trop de tentatives, réessayez plus tard.' }[c] || 'Opération impossible, réessayez.');
+const cred = () => { const e = $('em').value.trim(), p = $('pw').value; if (!e || p.length < 8) { $('lerr').textContent = 'E-mail et mot de passe (8 caractères minimum) requis.'; return null; } return [e, p]; };
+$('login').onsubmit = async e => { e.preventDefault(); const c = cred(); if (!c) return; try { await signInWithEmailAndPassword(auth, ...c); } catch (x) { $('lerr').textContent = msg(x.code); } };
+$('bSign').onclick = async () => { const c = cred(); if (!c) return; try { await createUserWithEmailAndPassword(auth, ...c); } catch (x) { $('lerr').textContent = msg(x.code); } };
+$('bReset').onclick = async () => { const e = $('em').value.trim(); if (!e) { $('lerr').textContent = 'Saisissez votre e-mail d’abord.'; return; } try { await sendPasswordResetEmail(auth, e); } catch (_) {} $('lerr').textContent = 'Si un compte existe, un e-mail de réinitialisation a été envoyé.'; };
+$('bOut').onclick = () => signOut(auth);
+let uid = null; const P = (...p) => ['users', uid, ...p];
+onAuthStateChanged(auth, u => {
+  $('login').hidden = !!u; $('app').hidden = !u;
+  if (u) { uid = u.uid; $('who').textContent = u.email; $('pw').value = ''; start(); } else stop();
+});
+
+function norm(id, acct, t) {
+  return { id, acct, date: t.date || '', ts: Number(t.closeTime) || 0, asset: t.asset || '', type: t.type === 'SELL' ? 'SELL' : 'BUY', lot: Number(t.lotSize) || 0,
+    pnl: Number(t.pnl) || 0, rr: t.rr == null ? null : Number(t.rr), plan: t.followedPlan || '', emo: t.emotion || '', setup: t.setup || '', notes: t.notes || '' };
+}
+let unsubAcc = null;
+function stop() {
+  if (unsubAcc) unsubAcc(); unsubAcc = null; Object.values(U).forEach(a => a.forEach(f => f())); [A, T, N, U].forEach(o => Object.keys(o).forEach(k => delete o[k]));
+  started = false; uid = null; cur = 'ALL'; $('tTr').innerHTML = ''; $('tPos').innerHTML = ''; $('tabs').innerHTML = '';
+}
+function start() {
+  if (started) return; started = true;
+  unsubAcc = onSnapshot(collection(db, ...P('accounts')), s => {
+    Object.keys(A).forEach(k => delete A[k]);
+    s.forEach(d => { A[d.id] = { id:d.id, ...d.data() }; attach(d.id); });
+    render();
+  });
+}
+function attach(id) {
+  if (U[id]) return;
+  U[id] = [
+    onSnapshot(collection(db, ...P('accounts', id, 'trades')), s => { T[id] = s.docs.map(d => norm(d.id, id, d.data())); render(); }),
+    onSnapshot(query(collection(db, ...P('accounts', id, 'snapshots')), orderBy('t', 'desc'), limit(600)), s => { N[id] = s.docs.map(d => d.data()).reverse(); render(); })
+  ];
+}
+setInterval(render, 30000);
+
+// ---------- Calculs ----------
+function analyse(list, start) {
+  const o = { eq:[start], lb:['Départ'], dd:0, n:list.length, w:0, l:0, gp:0, gl:0, pnl:0, q:0, qOk:0, best:0, worst:0, mxW:0, mxL:0, emo:{}, month:{} };
+  let eq = start, pk = start, cw = 0, cl2 = 0;
+  list.forEach((t, i) => {
+    const p = t.pnl; eq += p; o.pnl += p; pk = Math.max(pk, eq);
+    if (p > 0) { o.w++; o.gp += p; cw++; cl2 = 0; } else if (p < 0) { o.l++; o.gl -= p; cl2++; cw = 0; }
+    o.mxW = Math.max(o.mxW, cw); o.mxL = Math.max(o.mxL, cl2); o.best = Math.max(o.best, p); o.worst = Math.min(o.worst, p);
+    if (t.plan) { o.q++; if (t.plan === 'Oui') o.qOk++; }
+    if (pk > 0) o.dd = Math.max(o.dd, (pk - eq) / pk * 100);
+    o.eq.push(eq); o.lb.push('#' + (i + 1));
+    const e = t.emo || 'Non qualifié', m = t.date.slice(0, 7) || '—'; o.emo[e] = (o.emo[e] || 0) + p; o.month[m] = (o.month[m] || 0) + p;
+  });
+  return o;
+}
+const Ch = {}; Chart.defaults.color = '#8792a2'; Chart.defaults.font.family = 'Manrope, sans-serif';
+const gridc = { color:'#1c2430' };
+function chart(id, type, labels, sets, opt = {}) {
+  if (Ch[id]) Ch[id].destroy();
+  Ch[id] = new Chart($(id), { type, data:{ labels, datasets:sets }, options:Object.assign({ responsive:true, maintainAspectRatio:false, animation:false, interaction:{ mode:'index', intersect:false },
+    plugins:{ legend:{ display:sets.length > 1, labels:{ boxWidth:12 } } }, scales:{ x:{ grid:{ display:false }, ticks:{ maxTicksLimit:8 } }, y:{ grid:gridc } } }, opt) });
+}
+const barSet = obj => { const k = Object.keys(obj).sort(), v = k.map(x => +obj[x].toFixed(2)); return [k, [{ data:v, backgroundColor:v.map(x => x >= 0 ? '#3ecf8e' : '#f0616d'), borderRadius:4 }]]; };
+
+// ---------- Affichage ----------
+function draw() {
+  const all = Object.keys(A).sort();
+  $('tabs').innerHTML = ['ALL', ...all].map(id => {
+    const a = A[id], on = id === 'ALL' ? all.some(i => online(A[i])) : online(a);
+    return `<button data-t="${esc(id)}" class="${cur === id ? 'on' : ''}"><span class="dot ${on ? 'on' : ''}"></span>${id === 'ALL' ? 'Tous les comptes' : esc(a.name || id)}</button>`;
+  }).join('');
+  if (cur !== 'ALL' && !A[cur]) cur = 'ALL';
+  const ids = cur === 'ALL' ? all : [cur], single = cur !== 'ALL';
+  const list = ids.flatMap(i => T[i] || []).sort((a, b) => (a.ts - b.ts) || a.date.localeCompare(b.date));
+  const bal = ids.reduce((s, i) => s + (+A[i].balance || 0), 0), eq = ids.reduce((s, i) => s + (+A[i].equity || 0), 0);
+  const start = ids.reduce((s, i) => s + (+A[i].startBalance || ((+A[i].balance || 0) - (T[i] || []).reduce((x, t) => x + t.pnl, 0))), 0);
+  const a = analyse(list, start);
+
+  $('kBal').textContent = fmt(bal);
+  $('kSt').innerHTML = single ? `<span class="dot ${online(A[cur]) ? 'on' : ''}"></span>${online(A[cur]) ? 'En ligne' : 'Hors ligne · ' + ago(A[cur])}` : `${ids.length} compte(s)`;
+  $('kEq').textContent = fmt(eq); $('kFl').textContent = 'Flottant : ' + sg(eq - bal);
+  $('kPnl').textContent = sg(a.pnl); $('kPnl').className = 'v ' + cl(a.pnl);
+  $('kPct').textContent = start ? (a.pnl >= 0 ? '+' : '') + (a.pnl / start * 100).toFixed(2) + ' % du capital' : '—';
+  $('kWin').textContent = a.n ? (a.w / a.n * 100).toFixed(1) + ' %' : '—'; $('kCnt').textContent = `${a.n} trade(s) · ${a.w}G / ${a.l}P`;
+  $('kPf').textContent = a.gl > 0 ? (a.gp / a.gl).toFixed(2) : a.gp > 0 ? '∞' : '—';
+  $('kDd').textContent = a.dd.toFixed(2) + ' %';
+  $('kDis').textContent = a.q ? Math.round(a.qOk / a.q * 100) + ' %' : '—'; $('kDisN').textContent = `${a.q}/${a.n} trades qualifiés`;
+
+  const aw = a.w ? a.gp / a.w : 0, al = a.l ? a.gl / a.l : 0, n = a.n || 1, ex = a.w / n * aw - a.l / n * al;
+  const rows = [['Espérance par trade', a.n ? sg(ex) : '—', cl(ex)], ['Gain moyen / perte moyenne', al ? (aw / al).toFixed(2) : '—', ''],
+    ['Meilleur / pire trade', a.n ? sg(a.best) + ' / ' + sg(a.worst) : '—', ''], ['Séries max (gains / pertes)', a.n ? a.mxW + ' / ' + a.mxL : '—', '']];
+  $('stats').innerHTML = rows.map(r => `<div class="row"><span>${r[0]}</span><b class="${r[2]}">${r[1]}</b></div>`).join('');
+
+  rules(single, start, eq, bal);
+
+  const sn = single ? (N[cur] || []) : [];
+  if (single && sn.length > 1) {
+    $('eqTitle').textContent = 'Solde et équité en direct';
+    chart('cEq', 'line', sn.map(s => new Date(s.t * 1000).toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })),
+      [{ label:'Équité', data:sn.map(s => s.equity), borderColor:'#e3b04b', backgroundColor:'rgba(227,176,75,.08)', fill:true, borderWidth:2, pointRadius:0, tension:.2 },
+       { label:'Solde', data:sn.map(s => s.balance), borderColor:'#6aa7ff', borderWidth:1.5, pointRadius:0, stepped:true }]);
+  } else {
+    $('eqTitle').textContent = 'Courbe de capital (trades clôturés)';
+    chart('cEq', 'line', a.lb, [{ label:'Capital', data:a.eq, borderColor:'#e3b04b', backgroundColor:'rgba(227,176,75,.08)', fill:true, borderWidth:2, pointRadius:a.eq.length > 60 ? 0 : 3, tension:.2 }]);
+  }
+  let [k, d] = barSet(a.month); chart('cMonth', 'bar', k, d); [k, d] = barSet(a.emo); chart('cEmo', 'bar', k, d);
+
+  const pos = ids.flatMap(i => { try { return JSON.parse(A[i].positions || '[]').map(p => ({ ...p, a:A[i].name || i })); } catch (_) { return []; } });
+  $('tPos').innerHTML = pos.length ? pos.map(p => `<tr><td>${esc(p.a)}</td><td><b>${esc(p.s)}</b></td><td><span class="tag ${p.t === 'BUY' ? 'buy' : 'sell'}">${p.t}</span></td><td>${p.v}</td><td>${p.o}</td><td class="${cl(p.p)}"><b>${sg(p.p)}</b></td></tr>`).join('')
+    : '<tr><td colspan="6" class="empty">Aucune position ouverte.</td></tr>';
+
+  if (document.activeElement.closest && document.activeElement.closest('#tTr')) return; // ne pas perturber la saisie
+  const shown = list.slice().reverse().slice(0, 200), q = list.filter(t => !t.plan).length;
+  $('qNote').textContent = q ? `· ${q} à qualifier (plan, émotion, setup)` : '';
+  const opt = (v, arr) => arr.map(x => `<option ${x === v ? 'selected' : ''}>${x}</option>`).join('');
+  $('tTr').innerHTML = shown.length ? shown.map(t => `<tr data-a="${esc(t.acct)}" data-i="${esc(t.id)}"><td>${esc(t.date)}</td><td>${esc((A[t.acct] || {}).name || t.acct)}</td><td><b>${esc(t.asset)}</b></td>
+    <td><span class="tag ${t.type === 'BUY' ? 'buy' : 'sell'}">${t.type}</span></td><td>${t.lot}</td><td class="${cl(t.pnl)}"><b>${sg(t.pnl)}</b></td><td>${t.rr != null ? t.rr.toFixed(1) + 'R' : '—'}</td>
+    <td><input data-f="setup" value="${esc(t.setup)}" placeholder="OB, FVG…"></td>
+    <td><select data-f="followedPlan">${opt(t.plan, ['', 'Oui', 'Non'])}</select></td>
+    <td><select data-f="emotion">${opt(t.emo, ['', 'Calme', 'Impatient', 'FOMO', 'Revenge', 'Stressé'])}</select></td>
+    <td><input data-f="notes" value="${esc(t.notes)}" placeholder="Notes"></td></tr>`).join('')
+    : '<tr><td colspan="11" class="empty">Aucun trade. Les trades clôturés arrivent automatiquement depuis votre EA une fois votre compte relié.</td></tr>';
+}
+const online = a => a && (Date.now() / 1000 - (+a.updatedAt || 0)) < 150;
+const ago = a => { const s = Date.now() / 1000 - (+a.updatedAt || 0); return !a.updatedAt ? 'jamais' : s < 3600 ? Math.round(s / 60) + ' min' : s < 86400 ? Math.round(s / 3600) + ' h' : Math.round(s / 86400) + ' j'; };
+
+function rules(single, start, eq, bal) {
+  $('rules').hidden = !single; if (!single) return;
+  const a = A[cur], f = (id, v) => { if (document.activeElement !== $(id)) $(id).value = v ?? ''; };
+  f('rStart', a.startBalance ?? Math.round(start)); f('rDay', a.dailyPct); f('rDd', a.ddPct); f('rTg', a.targetPct);
+  const sb = +a.startBalance || start, midnight = new Date().setHours(0, 0, 0, 0) / 1000;
+  const prev = (N[cur] || []).filter(s => s.t < midnight).pop();
+  const dayStart = prev ? Math.max(prev.balance, prev.equity) : bal - (T[cur] || []).filter(t => t.ts >= midnight).reduce((s, t) => s + t.pnl, 0);
+  const g = (bar, txt, used, lim, inv) => {
+    if (!lim) { $(txt).textContent = 'Non défini'; $(bar).style.width = '0'; return; }
+    const p = Math.max(0, Math.min(100, used / lim * 100)); $(bar).style.width = p + '%';
+    $(bar).style.background = inv ? '#3ecf8e' : p > 80 ? '#f0616d' : p > 50 ? '#e3b04b' : '#3ecf8e';
+    $(txt).textContent = `${fmt(Math.max(0, used))} / ${fmt(lim)} (${p.toFixed(0)} %)`;
+  };
+  g('gDay', 'gDayT', dayStart - eq, sb * (+a.dailyPct || 0) / 100);
+  g('gDd', 'gDdT', sb - eq, sb * (+a.ddPct || 0) / 100);
+  g('gTg', 'gTgT', eq - sb, sb * (+a.targetPct || 0) / 100, true);
+}
+
+// ---------- Actions ----------
+$('tabs').onclick = e => { const b = e.target.closest('button'); if (b) { cur = b.dataset.t; render(); } };
+const saveRule = (id, field) => $(id).onchange = () => setDoc(doc(db, ...P('accounts', cur)), { [field]: parseFloat($(id).value) || 0 }, { merge:true });
+saveRule('rStart', 'startBalance'); saveRule('rDay', 'dailyPct'); saveRule('rDd', 'ddPct'); saveRule('rTg', 'targetPct');
+$('tTr').onchange = e => {
+  const f = e.target.dataset.f, tr = e.target.closest('tr'); if (!f || !tr) return;
+  setDoc(doc(db, ...P('accounts', tr.dataset.a, 'trades', tr.dataset.i)), { [f]: e.target.value }, { merge:true });
+};
+$('bCsv').onclick = () => {
+  const ids = cur === 'ALL' ? Object.keys(A) : [cur], rows = ids.flatMap(i => T[i] || []).sort((a, b) => a.ts - b.ts);
+  const c = v => { v = String(v ?? ''); if (/^[=+\-@]/.test(v)) v = "'" + v; return '"' + v.replace(/"/g, '""') + '"'; };
+  const csv = '\ufeff' + 'Date,Compte,Actif,Sens,Lots,Resultat,RR,Setup,PlanRespecte,Emotion,Notes\n' +
+    rows.map(t => [t.date, (A[t.acct] || {}).name || t.acct, t.asset, t.type, t.lot, t.pnl, t.rr ?? '', t.setup, t.plan, t.emo, t.notes].map(c).join(',')).join('\n');
+  const l = document.createElement('a'); l.href = URL.createObjectURL(new Blob([csv], { type:'text/csv;charset=utf-8' })); l.download = 'journal_' + new Date().toISOString().slice(0, 10) + '.csv'; l.click();
+};
+</script>
+</body>
+</html>
